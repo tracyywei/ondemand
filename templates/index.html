@@ -8,23 +8,14 @@
 </head>
 <body>
   <div class="container">
-    <div class="input-section">
-      <label for="user-input">Enter your message:</label>
-      <textarea id="user-input" placeholder="Type your message here..."></textarea>
-      <div class="button-group">
-        <button id="speech-to-text">🎤 Speech to Text</button>
-        <button id="submit-text">✉️ Submit</button>
-      </div>
-    </div>
-
     <div class="output-section">
       <div class="output-box">
-        <label for="ai-response">Additional Info:</label>
-        <textarea id="ai-response" readonly placeholder="Any request for additional info or follow-up will appear here..."></textarea>
+        <label for="ai-response">Next Steps:</label>
+        <textarea id="ai-response" readonly placeholder="Any next steps after speaking to our agent will appear here..."></textarea>
       </div>
       <div class="output-box">
-        <label for="ai-letter">Demand Letter:</label>
-        <textarea id="ai-letter" readonly placeholder="The working demand letter will appear here..."></textarea>
+        <label for="ai-letter">Intake Form:</label>
+        <textarea id="ai-letter" readonly placeholder="Your intake form will appear here..."></textarea>
 
         <div class="button-group" style="margin-top: 10px;">
           <button id="download-pdf">📄 Convert to PDF</button>
@@ -34,8 +25,8 @@
     </div>
   </div>
 
-  <script>
-  </script>
+  <elevenlabs-convai agent-id="4aDXfaM2u9c6X9BGMOOf"></elevenlabs-convai>
+  <script src="https://elevenlabs.io/convai-widget/index.js" async type="text/javascript"></script>
 
   
 </body>
