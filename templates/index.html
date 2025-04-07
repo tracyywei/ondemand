@@ -10,16 +10,18 @@
   <div class="container">
     <div class="output-section">
       <div class="output-box">
-        <label for="ai-response">Next Steps:</label>
-        <textarea id="ai-response" readonly placeholder="Any next steps after speaking to our agent will appear here..."></textarea>
-      </div>
-      <div class="output-box">
         <label for="ai-letter">Intake Form:</label>
         <textarea id="ai-letter" readonly placeholder="Your intake form will appear here..."></textarea>
 
         <div class="button-group" style="margin-top: 10px;">
-          <button id="download-pdf">📄 Convert to PDF</button>
-          <button id="email-letter">📧 Email to Me</button>
+          <button id="email-letter">Email/SMS</button>
+        </div>
+      </div>
+      <div class="output-box">
+        <label for="ai-response">Next Steps:</label>
+        <textarea id="ai-response" readonly placeholder="Any next steps after speaking to our agent will appear here..."></textarea>
+        <div class="button-group" style="margin-top: 10px;">
+          <button id="send-form">Send intake form</button>
         </div>
       </div>
     </div>
@@ -27,7 +29,86 @@
 
   <elevenlabs-convai agent-id="4aDXfaM2u9c6X9BGMOOf"></elevenlabs-convai>
   <script src="https://elevenlabs.io/convai-widget/index.js" async type="text/javascript"></script>
+  <script>
+    let transcript_exists = true; // Replace this with the actual logic to set the variable
+    let processed_transcript = false; 
 
-  
+    async function checkTranscript() {
+      if (transcript_exists && !processed_transcript) {
+        let transcript = `Hi, I am Donna your legal aid, what issue can I assist you with?
+0:00
+Hi, my landlord hasn't made repairs. My refrigerator is broken and it's been broken for a few weeks.
+0:03
+I am sorry to hear that. I can certainly help you with that. First, could you please provide your first and last name?
+0:10
+LLM
+245 ms
+My first name is Evan. My last name is YI.
+0:17
+Thank you Evan Yi. And what is your annual income?
+0:20
+My annual income is like $50,000 a year.
+0:23
+Okay, thank you. Can you briefly describe your legal situation regarding the landlord and the broken refrigerator, in addition to what you already mentioned?
+0:26
+LLM
+258 ms
+Sure, the refrigerator's been broken for a while. I haven't told my landlord about it yet, but I was thinking that I should probably do something about it since I can't store food in it right now.
+0:33
+Okay, so to clarify, you haven't yet notified your landlord about the issue, but you're planning to do so? Also, are you looking for general advice on how to approach this, or do you need assistance with specific documents or tasks related to this issue?
+0:47
+LLM
+257 ms
+Yeah, I just want some general advice as to how I would proceed in going about getting this refrigerator fixed.
+1:03
+Okay, I understand. Who is the opposing party in this case, if any, besides your landlord?
+1:10
+It's just my landlord, his company is under his name. It's John Doe.
+1:15
+Okay, thank you. Is there a court deadline or emergency, like an eviction notice, domestic violence, or restraining order related to this case?
+1:23
+LLM
+259 ms
+No, I'd just like my refrigerator fixed sometime soon.
+1:31
+Okay, thank you. What is your family size, including yourself?
+1:34
+It's just me.
+1:38
+Got it. And what is your zip code?
+1:40
+98027.
+1:43
+Thank you. And what is your date of birth?
+1:45
+August 4th, 1970.
+1:48`;
+        try {
+          const response = await fetch('/intake_form', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ transcript }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch intake form');
+          }
+
+          const data = await response.json();
+          document.getElementById('ai-letter').value = data.intake_form.replace("```plaintext", "");
+          document.getElementById('ai-response').value = data.resources;
+        } catch (error) {
+          console.error('Error:', error);
+          document.getElementById('ai-letter').value = 'Error generating intake form. Please try again.';
+        }
+        processed_transcript = true;
+      }
+    }
+
+    setInterval(checkTranscript, 5000);
+
+  </script>
 </body>
 </html>

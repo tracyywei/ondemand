@@ -1,41 +1,74 @@
 from flask import Flask, render_template, request, jsonify
+from openai import OpenAI
 import os
-from fastapi import FastAPI, Request
-import time
-import hmac
-from hashlib import sha256
 
 app = Flask(__name__)
-fast_app = FastAPI()
+client = OpenAI()
 
 @app.route("/")
 def start():
     return render_template('index.html')
 
-@fast_app.post("/webhook")
-async def receive_message(request: Request):
-    payload = await request.body()
-    headers = request.headers.get("elevenlabs-signature")
-    if headers is None:
-        return
-    timestamp = headers.split(",")[0][2:]
-    hmac_signature = headers.split(",")[1]
+def provide_resources():
+    instructions = """
+    Provide me with a list of legal aid housing organizations in Palo Alto with website URL, physical address, phone number, and short description, if available.
+    """
 
-    tolerance = int(time.time()) - 30 * 60
-    if int(timestamp) < tolerance:
-        return
-
-    full_payload_to_sign = f"{timestamp}.{payload.decode('utf-8')}"
-    mac = hmac.new(
-        key=secret.encode("utf-8"),
-        msg=full_payload_to_sign.encode("utf-8"),
-        digestmod=sha256,
+    response = client.responses.create(
+        model="gpt-4o",
+        input=instructions
     )
-    digest = 'v0=' + mac.hexdigest()
-    if hmac_signature != digest:
-        return
+    print(response.output_text)
+    return response.output_text
 
-    return {"status": "received"}
-       
+@app.route("/intake_form", methods=["POST"])
+def intake_form():
+    data = request.get_json()
+    transcript = data.get("transcript")
+
+    instructions = """
+    You are an intake form writer. Your goal is to produce an intake form in the (FORM) format using the information from (TRANSCRIPT). As the output, you will return the intake form. 
+
+    When constructing the 3-4 sentence legal problem summary in the intake form, please use the following instructions:
+    1. The first sentence should be a concise, up-front statement that summarizes what the client wants from an attorney
+    2. The next sentences should provide only relevant background information
+    3. In the end, put the opposing party. For example if the opposing party was John Doe, this would be “OP: John Doe”
+
+    FORM:
+    Problem Category: [Insert problem category]
+
+    [Insert legal problem summary here]
+
+    PERSONAL INFORMATION
+    Name: [Insert First and Last Name]
+    Birth Date: [Insert Birth Date]
+    Zip Code: [Insert Zip Code]
+
+    FINANCIAL INFORMATION
+    Family Size: [Insert Family Size]
+    Annual Income: [Insert Annual Income]
+    Percent of FPL: [Calculate percentage their income is of the federal poverty line]
+
+    CONTACT INFORMATION: 
+    Phone Number: [Insert Phone Number]
+    Voicemail Okay: [Insert if voicemail is okay]
+    SMS Okay: [insert if SMS is okay]
+    Email: [Insert email]
+
+    TRANSCRIPT:
+    {}
+    """.format(transcript)
+
+    response = client.responses.create(
+        model="gpt-4o",
+        input=instructions
+    )
+
+    print(response.output_text)
+
+    intake_form = response.output_text
+    resources = provide_resources()
+    return jsonify({"intake_form": intake_form, "resources": resources})
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", debug=True)
