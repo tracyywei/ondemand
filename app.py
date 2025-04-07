@@ -18,16 +18,17 @@ def provide_resources():
         model="gpt-4o",
         input=instructions
     )
-    print(response.output_text)
     return response.output_text
 
 @app.route("/intake_form", methods=["POST"])
 def intake_form():
     data = request.get_json()
     transcript = data.get("transcript")
+    print("TRANSCRIPT")
+    print(transcript)
 
     instructions = """
-    You are an intake form writer. Your goal is to produce an intake form in the (FORM) format using the information from (TRANSCRIPT). As the output, you will return the intake form. 
+    You are an intake form writer. Your goal is to produce an intake form in the (FORM) format using the information from (TRANSCRIPT). As the output, you will ONLY return the intake form. 
 
     When constructing the 3-4 sentence legal problem summary in the intake form, please use the following instructions:
     1. The first sentence should be a concise, up-front statement that summarizes what the client wants from an attorney

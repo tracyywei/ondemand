@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>On Demand</title>
+  <title>Donna</title>
   <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <div class="container">
+    <div id="loading-spinner" class="spinner"></div>
     <div class="output-section">
       <div class="output-box">
         <label for="ai-letter">Intake Form:</label>
@@ -15,7 +16,7 @@
 
         <div class="button-group" style="margin-top: 10px;">
           <button id="download-pdf">Download PDF</button>
-          <button id="email-letter">Email/SMS</button>
+          <button id="email-letter">Email</button>
         </div>
       </div>
       <div class="output-box">
@@ -32,84 +33,77 @@
   <script src="https://elevenlabs.io/convai-widget/index.js" async type="text/javascript"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script>
-    let transcript_exists = true; // Replace this with the actual logic to set the variable
+    let transcript_exists = false; // Replace this with the actual logic to set the variable
+    let transcript = ""; 
     let processed_transcript = false; 
+    let pollingInterval; // Variable to store the interval ID
 
     async function checkTranscript() {
-      if (transcript_exists && !processed_transcript) {
-        let transcript = `Hi, I am Donna your legal aid, what issue can I assist you with?
-0:00
-Hi, my landlord hasn't made repairs. My refrigerator is broken and it's been broken for a few weeks.
-0:03
-I am sorry to hear that. I can certainly help you with that. First, could you please provide your first and last name?
-0:10
-LLM
-245 ms
-My first name is Evan. My last name is YI.
-0:17
-Thank you Evan Yi. And what is your annual income?
-0:20
-My annual income is like $50,000 a year.
-0:23
-Okay, thank you. Can you briefly describe your legal situation regarding the landlord and the broken refrigerator, in addition to what you already mentioned?
-0:26
-LLM
-258 ms
-Sure, the refrigerator's been broken for a while. I haven't told my landlord about it yet, but I was thinking that I should probably do something about it since I can't store food in it right now.
-0:33
-Okay, so to clarify, you haven't yet notified your landlord about the issue, but you're planning to do so? Also, are you looking for general advice on how to approach this, or do you need assistance with specific documents or tasks related to this issue?
-0:47
-LLM
-257 ms
-Yeah, I just want some general advice as to how I would proceed in going about getting this refrigerator fixed.
-1:03
-Okay, I understand. Who is the opposing party in this case, if any, besides your landlord?
-1:10
-It's just my landlord, his company is under his name. It's John Doe.
-1:15
-Okay, thank you. Is there a court deadline or emergency, like an eviction notice, domestic violence, or restraining order related to this case?
-1:23
-LLM
-259 ms
-No, I'd just like my refrigerator fixed sometime soon.
-1:31
-Okay, thank you. What is your family size, including yourself?
-1:34
-It's just me.
-1:38
-Got it. And what is your zip code?
-1:40
-98027.
-1:43
-Thank you. And what is your date of birth?
-1:45
-August 4th, 1970.
-1:48`;
-        try {
-          const response = await fetch('/intake_form', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ transcript }),
-          });
+      try {
+        // Show the spinner
+        document.getElementById('loading-spinner').style.display = 'block';
 
-          if (!response.ok) {
-            throw new Error('Failed to fetch intake form');
+        const response = await fetch('https://kyl4dw19g6.execute-api.us-east-2.amazonaws.com/dev/polling', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
           }
+        });
 
-          const data = await response.json();
-          document.getElementById('ai-letter').value = data.intake_form.replace("```plaintext", "");
-          document.getElementById('ai-response').value = data.resources;
-        } catch (error) {
-          console.error('Error:', error);
-          document.getElementById('ai-letter').value = 'Error generating intake form. Please try again.';
+        if (!response.ok) {
+          throw new Error('Error fetching transcript data');
         }
-        processed_transcript = true;
+
+        const data = await response.json();
+        if (data.transcript_exists) {
+          transcript_exists = true;
+          transcript = data.transcript_text;
+          console.log(transcript);
+
+          // Stop polling once the transcript is received
+          clearInterval(pollingInterval);
+
+          // Process the transcript
+          if (!processed_transcript && transcript_exists) {
+            try {
+              const response = await fetch('/intake_form', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ transcript }),
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to fetch intake form');
+              }
+
+              const data = await response.json();
+
+              // Hide the spinner
+              document.getElementById('loading-spinner').style.display = 'none';
+
+              document.getElementById('ai-letter').value = (data.intake_form.replace("```plaintext", "")).replace("FORM:", "");
+              document.getElementById('ai-response').value = data.resources;
+            } catch (error) {
+              console.error('Error:', error);
+              document.getElementById('ai-letter').value = 'Error generating intake form. Please try again.';
+            }
+            processed_transcript = true;
+          }
+        } else {
+          transcript_exists = false;
+          transcript = "";
+        }
+      } catch (error) {
+        console.error('Error fetching transcript:', error);
+        // Hide the spinner in case of an error
+        document.getElementById('loading-spinner').style.display = 'none';
       }
     }
 
-    setInterval(checkTranscript, 5000);
+    // Start polling every 5 seconds
+    pollingInterval = setInterval(checkTranscript, 5000);
 
     // Generate PDF
     document.getElementById('download-pdf').addEventListener('click', async () => {
@@ -118,46 +112,74 @@ August 4th, 1970.
       const { width, height } = page.getSize();
       const fontSize = 12;
       const margin = 20;
-      const maxLineWidth = width - margin * 2; // Maximum width for text
+      const maxLineWidth = width - margin * 2;
       const lineHeight = fontSize + 5;
 
       const intakeFormText = document.getElementById('ai-letter').value;
 
-      // Function to split text into lines that fit within the maxLineWidth
-      function wrapText(text, maxWidth, fontSize) {
-        const words = text.split(' ');
-        let lines = [];
-        let currentLine = '';
+      // Load a standard font
+      const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
 
-        words.forEach((word) => {
-          const testLine = currentLine + (currentLine ? ' ' : '') + word;
-          const testLineWidth = testLine.length * (fontSize * 0.6); // Approximate character width
-          if (testLineWidth > maxWidth) {
+      // Function to split text into lines that fit within the maxLineWidth.
+      function wrapText(text, maxWidth, font) {
+        // Split text into paragraphs by newlines to respect manual line breaks.
+        const paragraphs = text.split('\n');
+        let lines = [];
+
+        paragraphs.forEach((paragraph) => {
+          let words = paragraph.split(' ');
+          let currentLine = '';
+
+          words.forEach((word) => {
+            // Create a test line with the next word appended.
+            let testLine = currentLine ? currentLine + ' ' + word : word;
+            let testLineWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+            if (testLineWidth > maxWidth) {
+              if (currentLine) {
+                // If currentLine already has content, push it and start a new line with the word.
+                lines.push(currentLine);
+                currentLine = word;
+              } else {
+                // If a single word exceeds maxWidth, split it character by character.
+                let splitWord = '';
+                for (let char of word) {
+                  let testSplit = splitWord + char;
+                  if (font.widthOfTextAtSize(testSplit, fontSize) > maxWidth) {
+                    lines.push(splitWord);
+                    splitWord = char;
+                  } else {
+                    splitWord = testSplit;
+                  }
+                }
+                currentLine = splitWord;
+              }
+            } else {
+              // If it fits, update currentLine.
+              currentLine = testLine;
+            }
+          });
+
+          // Push any remaining text in currentLine.
+          if (currentLine) {
             lines.push(currentLine);
-            currentLine = word;
-          } else {
-            currentLine = testLine;
           }
         });
-
-        if (currentLine) {
-          lines.push(currentLine);
-        }
 
         return lines;
       }
 
-      const lines = wrapText(intakeFormText, maxLineWidth, fontSize);
+      const lines = wrapText(intakeFormText, maxLineWidth, font);
       let y = height - margin;
 
       lines.forEach((line) => {
+        // Check if there's enough space on the current page for another line.
         if (y - lineHeight < margin) {
-          // Add a new page if there's no space left
           page = pdfDoc.addPage();
           y = height - margin;
         }
-        page.drawText(line, { x: margin, y, size: fontSize });
-        y -= lineHeight;
+        page.drawText(line, { x: margin, y, size: fontSize, font });
+        y -= lineHeight; // Decrement y by lineHeight to avoid overlapping text.
       });
 
       const pdfBytes = await pdfDoc.save();
@@ -167,6 +189,7 @@ August 4th, 1970.
       link.download = 'intake_form.pdf';
       link.click();
     });
+
 
     // Email functionality
     document.getElementById('email-letter').addEventListener('click', () => {
