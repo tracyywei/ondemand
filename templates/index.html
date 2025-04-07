@@ -14,6 +14,7 @@
         <textarea id="ai-letter" readonly placeholder="Your intake form will appear here..."></textarea>
 
         <div class="button-group" style="margin-top: 10px;">
+          <button id="download-pdf">Download PDF</button>
           <button id="email-letter">Email/SMS</button>
         </div>
       </div>
@@ -29,6 +30,7 @@
 
   <elevenlabs-convai agent-id="4aDXfaM2u9c6X9BGMOOf"></elevenlabs-convai>
   <script src="https://elevenlabs.io/convai-widget/index.js" async type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script>
     let transcript_exists = true; // Replace this with the actual logic to set the variable
     let processed_transcript = false; 
@@ -109,6 +111,78 @@ August 4th, 1970.
 
     setInterval(checkTranscript, 5000);
 
+    // Generate PDF
+    document.getElementById('download-pdf').addEventListener('click', async () => {
+      const pdfDoc = await PDFLib.PDFDocument.create();
+      let page = pdfDoc.addPage();
+      const { width, height } = page.getSize();
+      const fontSize = 12;
+      const margin = 20;
+      const maxLineWidth = width - margin * 2; // Maximum width for text
+      const lineHeight = fontSize + 5;
+
+      const intakeFormText = document.getElementById('ai-letter').value;
+
+      // Function to split text into lines that fit within the maxLineWidth
+      function wrapText(text, maxWidth, fontSize) {
+        const words = text.split(' ');
+        let lines = [];
+        let currentLine = '';
+
+        words.forEach((word) => {
+          const testLine = currentLine + (currentLine ? ' ' : '') + word;
+          const testLineWidth = testLine.length * (fontSize * 0.6); // Approximate character width
+          if (testLineWidth > maxWidth) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        });
+
+        if (currentLine) {
+          lines.push(currentLine);
+        }
+
+        return lines;
+      }
+
+      const lines = wrapText(intakeFormText, maxLineWidth, fontSize);
+      let y = height - margin;
+
+      lines.forEach((line) => {
+        if (y - lineHeight < margin) {
+          // Add a new page if there's no space left
+          page = pdfDoc.addPage();
+          y = height - margin;
+        }
+        page.drawText(line, { x: margin, y, size: fontSize });
+        y -= lineHeight;
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'intake_form.pdf';
+      link.click();
+    });
+
+    // Email functionality
+    document.getElementById('email-letter').addEventListener('click', () => {
+      const intakeFormText = document.getElementById('ai-letter').value;
+
+      if (!intakeFormText) {
+        alert('The intake form is empty. Please generate the form before sending.');
+        return;
+      }
+
+      const subject = encodeURIComponent('Intake Form Submission');
+      const body = encodeURIComponent(intakeFormText);
+
+      // Open the default mail app with the pre-filled email
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    });
   </script>
 </body>
 </html>
